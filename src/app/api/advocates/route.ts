@@ -1,12 +1,38 @@
 import db from "../../../db";
 import { advocates } from "../../../db/schema";
-import { advocateData } from "../../../db/seed/advocates";
+import { sql } from "drizzle-orm";
 
-export async function GET() {
-  // Uncomment this line to use a database
-  // const data = await db.select().from(advocates);
+import { NextRequest } from "next/server";
 
-  const data = advocateData;
+export async function GET(req: NextRequest) {
+  try {
+    const searchParams = req.nextUrl.searchParams;
+    const search = searchParams.get("search");
 
-  return Response.json({ data });
+    const searchQuery = `${search}:*`;
+
+    if (search) {
+      const data = await db
+        .select()
+        .from(advocates)
+        .where(
+          sql`to_tsvector('english', ${advocates.firstName} || ' ' || ${advocates.lastName} || ' ' || ${advocates.city} || ' ' || ${advocates.degree} || ' ' || coalesce(${advocates.specialties}::text, '')) @@ to_tsquery('english', ${searchQuery})`,
+        )
+        .orderBy(
+          sql`ts_rank(
+              to_tsvector('english', ${advocates.firstName} || ' ' || ${advocates.lastName} || ' ' || ${advocates.city} || ' ' || ${advocates.degree} || ' ' || coalesce(${advocates.specialties}::text, '')),
+              to_tsquery('english', ${searchQuery})
+              ) DESC`,
+        );
+
+      return Response.json({ data });
+    }
+
+    const data = await db.select().from(advocates);
+
+    return Response.json({ data });
+  } catch (error) {
+    console.error(error);
+    return Response.error();
+  }
 }
