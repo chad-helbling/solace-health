@@ -7,11 +7,14 @@ import { NextRequest } from "next/server";
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
-    const search = searchParams.get("search");
-
-    const searchQuery = `${search}:*`;
+    const search = searchParams.get("search") as string;
 
     if (search) {
+      const searchQuery = search
+        .split(" ")
+        .map((word) => `${word}:*`)
+        .join(" & ");
+
       const data = await db
         .select()
         .from(advocates)
